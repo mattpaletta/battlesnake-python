@@ -123,7 +123,8 @@ def choose_next_move(data):
     # Find biggest reward direction:
     blurred = gaussian_filter(input=board, cval=SNAKE_VALUE, sigma=2)
     options = get_neighboars(board=blurred, square=head)
-    best = max(map(lambda p: blurred[p["x"]][p["y"]], options))
+    only_options = filter(lambda p: (p["x"], p["y"]) not in map(lambda x: (x["x"], x["y"]), you), options)
+    best = max(map(lambda p: blurred[p["x"]][p["y"]], only_options))
 
     best_option = list(filter(lambda p: blurred[p["x"]][p["y"]] == best, options))[0]
 

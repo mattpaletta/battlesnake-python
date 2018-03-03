@@ -80,7 +80,7 @@ test = {
       "data": [
         {
           "object": "point",
-          "x": 8,
+          "x": 9,
           "y": 15
         },
         {
