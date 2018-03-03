@@ -1,0 +1,3 @@
+#!/Volumes/Scratch Disk/Programming Projects/battlesnake-python/venv/bin/python
+from numba.pycc import main
+main()

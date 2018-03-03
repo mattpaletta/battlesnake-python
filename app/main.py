@@ -1,8 +1,38 @@
+from Queue import PriorityQueue
+
 import bottle
 import os
-import random
+import numpy as np
+from numba import jit
+from scipy.ndimage import gaussian_filter
 
 
+#@jit
+def get_neighboars(board, square):
+    x = square["x"]
+    y = square["y"]
+
+    neighbours = []
+    neighbours.append(board[x + 1][y]) if x + 1 < len(board) else None
+    neighbours.append(board[x - 1][y]) if x - 1 > 0 else None
+    neighbours.append(board[x][y + 1]) if y + 1 < len(board) else None
+    neighbours.append(board[x][y - 1]) if y - 1 > 0 else None
+
+    return neighbours
+
+#@jit
+def find_shortest_path(graph, start, end, path=[]):
+    path = path + [start]
+    if start == end:
+        return path
+    shortest = None
+    for node in get_neighboars(graph, start):
+        if node not in path:
+            newpath = find_shortest_path(graph, node, end, path)
+            if newpath:
+                if not shortest or len(newpath) < len(shortest):
+                    shortest = newpath
+    return shortest
 
 @bottle.route('/')
 def static():
@@ -34,15 +64,74 @@ def start():
         'head_url': head_url
     }
 
+#@jit
+def choose_next_move(data):
+
+    FOOD_VALUE = 1.0
+    SNAKE_VALUE = -1.0
+    PLANNING = 3
+
+    # Add to game board
+    board = np.zeros(shape=(data["width"], data["height"]), dtype=np.float32)
+    health = data["you"]["health"]
+    you = data["you"]["body"]["data"]
+    snakes = data["snakes"]["data"]
+    food = data["food"]["data"]
+    head = you[0]
+
+    def add_item(food, val):
+        if type(food) == list:
+            for f in food:
+                board[int(f["x"])][int(f["y"])] = val
+        else:
+            board[int(food["x"])][int(food["y"])] = val
+
+    # Add food to board:
+    map(lambda f: add_item(f, FOOD_VALUE), food)
+
+    # Add snakes to board:
+    map(lambda x: add_item(x, SNAKE_VALUE), map(lambda b: b["body"]["data"], snakes))
+    map(lambda x: add_item(x, SNAKE_VALUE), you)
+
+    food_dist = map(lambda f: find_shortest_path(graph=board, start=head, end=f), food)
+    clostest_food_dist = min(map(lambda x: len(x), food_dist))
+    if (health - PLANNING) <= clostest_food_dist:
+        # Move towards food...
+        clostest_food = filter(lambda f: len(f) == clostest_food_dist, food_dist)[0]
+
+        if you["x"] > clostest_food[0]:
+            return 0
+        elif you["x"] < clostest_food[0]:
+            return 1
+        elif you["y"] > clostest_food[1]:
+            return 2
+        elif you["y"] > clostest_food[1]:
+            return 3
+
+    # Find biggest reward direction:
+    blurred = gaussian_filter(input=board, cval=SNAKE_VALUE, sigma=2)
+    options = get_neighboars(board=blurred, square=you)
+    best = max(options)
+
+    if you["x"] > best[0]:
+        return 0
+    elif you["x"] < best[0]:
+        return 1
+    elif you["y"] > best[1]:
+        return 2
+    elif you["y"] > best[1]:
+        return 3
+    else:
+        return 0
+
 
 @bottle.post('/move')
 def move():
     data = bottle.request.json
-
+    print("Got Move!")
     # TODO: Do things with data
-    
-    directions = ['up', 'down', 'left', 'right']
-    direction = random.choice(directions)
+    direction = ['up', 'down', 'left', 'right'][choose_next_move(data)]
+
     print direction
     return {
         'move': direction,
