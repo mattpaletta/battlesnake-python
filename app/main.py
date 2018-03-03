@@ -1,12 +1,9 @@
-from Queue import PriorityQueue
-
 import bottle
 import os
 import numpy as np
 from math import sqrt
-from numba import jit
+#from numba import jit
 from scipy.ndimage import gaussian_filter
-
 
 def euclidean_distance(start, end):
     sx, sy = (start["x"], start["y"])
