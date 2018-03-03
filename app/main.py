@@ -3,9 +3,20 @@ from Queue import PriorityQueue
 import bottle
 import os
 import numpy as np
+from math import sqrt
 from numba import jit
 from scipy.ndimage import gaussian_filter
 
+
+def euclidean_distance(start, end):
+    sx, sy = (start["x"], start["y"])
+    ex, ey = (end["x"], end["y"])
+    return sqrt(abs(ex - sx)**2 + abs(ey - sy)**2)
+
+def manhattan_distance(start, end):
+    sx, sy = (start["x"], start["y"])
+    ex, ey = (end["x"], end["y"])
+    return abs(ex - sx) + abs(ey - sy)
 
 #@jit
 def get_neighboars(board, square):
@@ -13,25 +24,27 @@ def get_neighboars(board, square):
     y = square["y"]
 
     neighbours = []
-    neighbours.append(board[x + 1][y]) if x + 1 < len(board) else None
-    neighbours.append(board[x - 1][y]) if x - 1 > 0 else None
-    neighbours.append(board[x][y + 1]) if y + 1 < len(board) else None
-    neighbours.append(board[x][y - 1]) if y - 1 > 0 else None
+    neighbours.append({"x": x + 1, "y": y}) if x + 1 < len(board) else None
+    neighbours.append({"x": x - 1, "y": y}) if x - 1 >= 0 else None
+    neighbours.append({"x": x ,"y": y + 1}) if y + 1 < len(board) else None
+    neighbours.append({"x": x, "y": y - 1}) if y - 1 >= 0 else None
 
     return neighbours
 
 #@jit
 def find_shortest_path(graph, start, end, path=[]):
     path = path + [start]
-    if start == end:
+    if (start["x"], start["y"]) == (end["x"], end["y"]):
         return path
     shortest = None
-    for node in get_neighboars(graph, start):
-        if node not in path:
+    neighbors = sorted(get_neighboars(graph, start), key=lambda x: manhattan_distance(x, end))
+    for node in neighbors:
+        if len(filter(lambda p: p["x"] == node["x"] and p["y"] == node["y"] ,path)) == 0: #and len(path) < manhattan_distance(start, end):
             newpath = find_shortest_path(graph, node, end, path)
             if newpath:
-                if not shortest or len(newpath) < len(shortest):
-                    shortest = newpath
+                return newpath
+                #if not shortest or len(newpath) < len(shortest):
+                    #shortest = newpath
     return shortest
 
 @bottle.route('/')
@@ -93,7 +106,9 @@ def choose_next_move(data):
     map(lambda x: add_item(x, SNAKE_VALUE), map(lambda b: b["body"]["data"], snakes))
     map(lambda x: add_item(x, SNAKE_VALUE), you)
 
+    print("Finding shortest path")
     food_dist = map(lambda f: find_shortest_path(graph=board, start=head, end=f), food)
+    print("Got clostest food")
     clostest_food_dist = min(map(lambda x: len(x), food_dist))
     if (health - PLANNING) <= clostest_food_dist:
         # Move towards food...
@@ -110,16 +125,18 @@ def choose_next_move(data):
 
     # Find biggest reward direction:
     blurred = gaussian_filter(input=board, cval=SNAKE_VALUE, sigma=2)
-    options = get_neighboars(board=blurred, square=you)
-    best = max(options)
+    options = get_neighboars(board=blurred, square=head)
+    best = max(map(lambda p: blurred[p["x"]][p["y"]], options))
 
-    if you["x"] > best[0]:
+    best_option = list(filter(lambda p: blurred[p["x"]][p["y"]] == best, options))[0]
+
+    if head["x"] > best_option["x"]:
         return 0
-    elif you["x"] < best[0]:
+    elif head["x"] < best_option["x"]:
         return 1
-    elif you["y"] > best[1]:
+    elif head["y"] > best_option["y"]:
         return 2
-    elif you["y"] > best[1]:
+    elif head["y"] > best_option["y"]:
         return 3
     else:
         return 0
