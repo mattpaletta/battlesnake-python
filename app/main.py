@@ -128,14 +128,14 @@ def choose_next_move(data):
 
     best_option = list(filter(lambda p: blurred[p["x"]][p["y"]] == best, options))[0]
 
-    if head["x"] > best_option["x"]:
-        return 0
-    elif head["x"] < best_option["x"]:
-        return 1
-    elif head["y"] > best_option["y"]:
-        return 2
-    elif head["y"] > best_option["y"]:
+    if head["x"] > best_option["x"] and best_option["x"] < board.shape[1]:
         return 3
+    elif head["x"] < best_option["x"] and best_option["x"] >= 0:
+        return 2
+    elif head["y"] > best_option["y"] and best_option["y"] >= 0:
+        return 0
+    elif head["y"] < best_option["y"] and best_option["y"] < board.shape[1]:
+        return 1
     else:
         return 0
 
